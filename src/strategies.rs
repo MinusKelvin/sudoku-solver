@@ -10,6 +10,16 @@ pub const STRATEGIES: &[(fn(&Board) -> Board, &'static str)] = &[
     (indirect_triples, "Indirect Triples")
 ];
 
+pub const DIFFICULTIES: &[&str] = &[
+    "a trivial",
+    "a trivial",
+    "an easy",
+    "a medium",
+    "a hard",
+    "a hard",
+    "a very hard"
+];
+
 fn trivial_eliminate(board: &Board) -> Board {
     let mut into = board.clone();
     for &group in board.groups() {

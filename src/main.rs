@@ -3,44 +3,65 @@ mod strategies;
 
 use std::collections::HashMap;
 use board::{ Board, CellPos, CellValue };
-use strategies::STRATEGIES;
+use strategies::{ STRATEGIES, DIFFICULTIES };
 
 fn main() {
     let board = Board::load(include_str!("sudoku.txt"));
     println!("Solving:");
     println!("{}", board);
-    let board = solve(board, &mut HashMap::new(), 0);
+    let (board, difficulty) = solve(board, &mut HashMap::new(), 0);
     if board.is_contradiction() {
         println!("No solutions exist.");
     } else if board.is_solved() {
         println!("{}", board);
-        println!("Solved.");
+        println!("Solved. I think this is {} puzzle.", DIFFICULTIES[difficulty]);
     } else {
         println!("{}", board);
         println!("More than one solution exists. Above is minimal form.");
     }
 }
 
-fn solve(mut board: Board, seen: &mut HashMap<Board, bool>, recursion_level: usize) -> Board {
+fn reduce(mut board: Board, indent: usize) -> (Board, usize) {
+    let mut difficulty = 0;
     'solveloop: for step in 1.. {
         if board.is_contradiction() || board.is_solved() {
             break;
         }
         let current = board.clone();
-        for (strat, name) in STRATEGIES {
+        for (i, (strat, name)) in STRATEGIES.iter().enumerate() {
             board = strat(&current);
             if board != current {
-                for _ in 0..recursion_level {
+                for _ in 0..indent {
                     print!(" ")
                 }
                 println!("Step {}, applying {}.", step, name);
                 continue 'solveloop;
             }
+            difficulty = difficulty.max(i);
+        }
+        for _ in 0..indent {
+            print!(" ")
+        }
+        println!("Solving strategies could not fully solve board.");
+        break;
+    }
+    (board, difficulty)
+}
+
+fn solve(mut board: Board, seen: &mut HashMap<Board, bool>, recursion_level: usize) -> (Board, usize) {
+    let mut difficulty = 0;
+    'solveloop: loop {
+        let (b, diff) = reduce(board, recursion_level);
+        board = b;
+        difficulty = difficulty.max(diff);
+        if board.is_contradiction() || board.is_solved() {
+            break;
         }
         for _ in 0..recursion_level {
             print!(" ")
         }
-        println!("Solving strategies could not fully solve board. Now guessing & checking.");
+        println!("Now guessing & checking.");
+        difficulty = STRATEGIES.len();
         let mut choices = vec![];
         for row in 0..9 {
             for col in 0..9 {
@@ -62,7 +83,7 @@ fn solve(mut board: Board, seen: &mut HashMap<Board, bool>, recursion_level: usi
         }
         break;
     }
-    board
+    (board, difficulty)
 }
 
 fn find_contradiction(
@@ -79,7 +100,8 @@ fn find_contradiction(
             seen[&board]
         } else {
             let b = board.clone();
-            board = solve(board, seen, recursion_level + 1);
+            let (b_, _) = solve(board, seen, recursion_level + 1);
+            board = b_;
             let contradiction = board.is_contradiction();
             seen.insert(b, contradiction);
             contradiction
